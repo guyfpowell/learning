@@ -1,0 +1,15 @@
+{
+  "name": "@learning/shared",
+  "version": "0.1.0",
+  "description": "Shared types and utilities for Learning app",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "echo \"tests pending\""
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.3"
+  }
+}

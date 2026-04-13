@@ -1,0 +1,215 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User authentication and profile
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  passwordHash String
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  profile                  UserProfile?
+  progress                 UserProgress[]
+  subscriptions            Subscription[]
+  notifications            Notification[]
+  notificationPreferences  NotificationPreference?
+
+  @@map("users")
+}
+
+model UserProfile {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  goal          String?  // "product-strategy", "ai-engineering", etc.
+  preferredTime String?  // "morning", "afternoon", "evening"
+  timezone      String?  // "UTC", "America/New_York", etc.
+  learningStyle String?  // "visual", "text", "mixed"
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_profiles")
+}
+
+// Skills and lessons
+model Skill {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String
+  category    String   // "product-management", "ai-engineering", "business"
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  skillPaths SkillPath[]
+
+  @@map("skills")
+}
+
+model SkillPath {
+  id            String   @id @default(cuid())
+  skillId       String
+  level         String   // "beginner", "intermediate", "advanced"
+  durationHours Int
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  skill   Skill    @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  lessons Lesson[]
+
+  @@unique([skillId, level])
+  @@map("skill_paths")
+}
+
+model Lesson {
+  id            String   @id @default(cuid())
+  skillPathId   String
+  day           Int      // 1-based: day 1, day 2, etc. in this skill path
+  title         String
+  content       String   @db.Text // Rich text or markdown
+  durationMinutes Int
+  mediaUrl      String?  // URL to video, image, or audio
+  difficulty    String   // "beginner", "intermediate", "advanced"
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  skillPath SkillPath      @relation(fields: [skillPathId], references: [id], onDelete: Cascade)
+  progress  UserProgress[]
+  quizzes   Quiz[]
+
+  @@unique([skillPathId, day])
+  @@map("lessons")
+}
+
+model Quiz {
+  id             String   @id @default(cuid())
+  lessonId       String
+  type           String   // "multiple-choice", "short-answer"
+  question       String   @db.Text
+  options        String[]  // JSON array for MCQ options
+  correctAnswer  String
+  explanation    String   @db.Text
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@map("quizzes")
+}
+
+// User progress tracking
+model UserProgress {
+  id             String   @id @default(cuid())
+  userId         String
+  lessonId       String
+  completedAt    DateTime?
+  quizScore      Int?     // 0-100
+  streakCount    Int      @default(0) // consecutive days
+  lastLessonDate DateTime? // for streak calculation
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, lessonId])
+  @@index([userId])
+  @@index([lessonId])
+  @@map("user_progress")
+}
+
+// Subscriptions and billing
+model SubscriptionPlan {
+  id                  String   @id @default(cuid())
+  name               String   @unique // "free", "starter", "pro", "premium"
+  priceUsd           Int      // in cents: $19.99 = 1999
+  billingCycle       String   // "monthly", "annual"
+  lessonsPerDay      Int
+  maxSkillPaths      Int
+  aiCoachingIncluded Boolean
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  subscriptions Subscription[]
+
+  @@map("subscription_plans")
+}
+
+model Subscription {
+  id                   String   @id @default(cuid())
+  userId               String
+  planId               String
+  status               String   // "active", "cancelled", "expired"
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
+  startedAt            DateTime @default(now())
+  renewedAt            DateTime?
+  expiresAt            DateTime?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  user User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan SubscriptionPlan    @relation(fields: [planId], references: [id], onDelete: Restrict)
+  events SubscriptionEvent[]
+
+  @@unique([userId])
+  @@index([userId])
+  @@map("subscriptions")
+}
+
+model SubscriptionEvent {
+  id              String   @id @default(cuid())
+  subscriptionId  String
+  type            String   // "subscribed", "renewed", "cancelled", "refunded"
+  amount          Int      // in cents
+  stripeEventId   String?
+  createdAt       DateTime @default(now())
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([subscriptionId])
+  @@map("subscription_events")
+}
+
+// Notification preferences
+model NotificationPreference {
+  id                 String   @id @default(cuid())
+  userId             String   @unique
+  enableDailyReminder Boolean @default(true)
+  reminderTime       String?  // "morning", "afternoon", "evening"
+  enableStreak       Boolean @default(true)
+  enableLessonAvailable Boolean @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("notification_preferences")
+}
+
+// Notifications
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String   // "daily-reminder", "streak-milestone", "lesson-available"
+  sentAt    DateTime @default(now())
+  clickedAt DateTime?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("notifications")
+}

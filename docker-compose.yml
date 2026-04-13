@@ -1,0 +1,58 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: learning-postgres
+    environment:
+      POSTGRES_USER: learning_user
+      POSTGRES_PASSWORD: learning_password
+      POSTGRES_DB: learning_app
+      POSTGRES_INITDB_ARGS: "-c timezone=UTC"
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U learning_user -d learning_app"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - learning_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: learning-redis
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - learning_network
+
+  # Optional: Ollama for local LLM inference
+  # Uncomment to enable local AI lesson generation
+  # ollama:
+  #   image: ollama/ollama:latest
+  #   container_name: learning-ollama
+  #   ports:
+  #     - "11435:11434"
+  #   volumes:
+  #     - ollama_data:/root/.ollama
+  #   environment:
+  #     - OLLAMA_HOST=0.0.0.0:11434
+  #   networks:
+  #     - learning_network
+
+volumes:
+  postgres_data:
+  redis_data:
+  # ollama_data:
+
+networks:
+  learning_network:
+    driver: bridge
