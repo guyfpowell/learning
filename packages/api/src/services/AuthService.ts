@@ -60,6 +60,7 @@ export class AuthService {
     const token = signToken({
       id: user.id,
       email: user.email,
+      role: user.role as 'user' | 'admin',
     });
 
     return {
@@ -103,6 +104,7 @@ export class AuthService {
     const token = signToken({
       id: user.id,
       email: user.email,
+      role: user.role as 'user' | 'admin',
     });
 
     return {

@@ -82,6 +82,7 @@ export class AuthController {
           id: user.id,
           email: user.email,
           name: user.name,
+          role: user.role,
           profile: user.profile,
         },
         timestamp: new Date().toISOString(),

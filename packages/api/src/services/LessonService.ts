@@ -34,10 +34,11 @@ export class LessonService {
       include: { lesson: { include: { skillPath: true } } },
     });
 
-    const incompleteLessons = allProgress.filter((p) => !p.completedAt);
+    const incompleteLessons = allProgress.filter((p) => !p.completedAt && p.lesson.published !== false);
 
     if (incompleteLessons.length === 0) {
       const anyLesson = await prisma.lesson.findFirst({
+        where: { published: true },
         include: { skillPath: true, quizzes: true },
       });
       if (!anyLesson) {

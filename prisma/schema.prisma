@@ -10,12 +10,18 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum UserRole {
+  user
+  admin
+}
+
 // User authentication and profile
 model User {
   id        String   @id @default(cuid())
   email     String   @unique
   passwordHash String
   name      String
+  role      UserRole @default(user)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -87,6 +93,8 @@ model Lesson {
   difficulty      String   // "beginner", "intermediate", "advanced"
   isAiGenerated   Boolean  @default(false)
   generatedModel  String?  // e.g. "llama3:8b", "gemini-1.5-flash" — for audit
+  published       Boolean  @default(true)
+  publishedAt     DateTime?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

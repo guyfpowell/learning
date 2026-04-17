@@ -14,7 +14,7 @@ describe('NotificationPreferenceController', () => {
 
   beforeEach(() => {
     mockReq = {
-      user: { id: 'user-1', email: 'test@test.com' },
+      user: { id: 'user-1', email: 'test@test.com', role: 'user' as const },
       body: {},
     };
     mockRes = {

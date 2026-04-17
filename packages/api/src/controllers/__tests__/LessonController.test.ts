@@ -25,7 +25,7 @@ describe('LessonController', () => {
   describe('getTodayLesson', () => {
     it('should return today lesson successfully', async () => {
       const req = {
-        user: { id: 'user-1', email: 'test@test.com' },
+        user: { id: 'user-1', email: 'test@test.com', role: 'user' as const },
       } as AuthenticatedRequest;
 
       const mockLesson = {

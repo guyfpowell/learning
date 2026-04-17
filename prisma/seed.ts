@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
@@ -8,6 +9,21 @@ async function main() {
   // Clear existing data (careful in production!)
   await prisma.skill.deleteMany();
   await prisma.subscriptionPlan.deleteMany();
+
+  // Seed admin user
+  const adminPasswordHash = await bcrypt.hash('admin-change-me', 10);
+  await prisma.user.upsert({
+    where: { email: 'admin@learning.app' },
+    update: {},
+    create: {
+      email: 'admin@learning.app',
+      passwordHash: adminPasswordHash,
+      name: 'Admin',
+      role: 'admin',
+      profile: { create: {} },
+    },
+  });
+  console.log('✅ Admin user seeded (email: admin@learning.app)');
 
   // Seed skills
   const skills = await Promise.all([

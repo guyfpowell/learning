@@ -32,7 +32,7 @@ describe('CoachingController', () => {
   beforeEach(() => {
     controller = new CoachingController();
     mockReq = {
-      user: { id: 'user-1', email: 'test@test.com' },
+      user: { id: 'user-1', email: 'test@test.com', role: 'user' as const },
       planName: 'pro',
       body: {
         messages: [{ role: 'user', content: 'What is a variable?' }],

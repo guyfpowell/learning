@@ -21,7 +21,7 @@ describe('requirePlan middleware', () => {
   let mockNext: jest.Mock;
 
   beforeEach(() => {
-    mockReq = { user: { id: 'user-1', email: 'test@test.com' } };
+    mockReq = { user: { id: 'user-1', email: 'test@test.com', role: 'user' as const } };
     mockRes = {
       status: jest.fn().mockReturnThis(),
       json: jest.fn(),

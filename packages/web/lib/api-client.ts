@@ -183,6 +183,146 @@ class ApiClient {
       body: JSON.stringify({ token, platform, deviceId }),
     })
   }
+
+  // Admin endpoints
+  async adminListSkills(): Promise<AdminSkill[]> {
+    return this.request<AdminSkill[]>('/admin/skills')
+  }
+
+  async adminCreateSkill(input: AdminCreateSkillInput): Promise<AdminSkill> {
+    return this.request<AdminSkill>('/admin/skills', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    })
+  }
+
+  async adminListSkillPaths(skillId?: string): Promise<AdminSkillPath[]> {
+    const params = skillId ? `?skillId=${skillId}` : ''
+    return this.request<AdminSkillPath[]>(`/admin/skill-paths${params}`)
+  }
+
+  async adminCreateSkillPath(input: AdminCreateSkillPathInput): Promise<AdminSkillPath> {
+    return this.request<AdminSkillPath>('/admin/skill-paths', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    })
+  }
+
+  async adminListLessonsByPath(skillPathId: string): Promise<AdminLesson[]> {
+    const params = new URLSearchParams({ skillPathId, page: '1' })
+    const response = await this.request<AdminLessonsResponse>(`/admin/lessons?${params}`)
+    return response.lessons
+  }
+
+  async adminListLessons(page: number, skill?: string, level?: string): Promise<AdminLessonsResponse> {
+    const params = new URLSearchParams({ page: String(page) })
+    if (skill) params.set('skill', skill)
+    if (level) params.set('level', level)
+    return this.request<AdminLessonsResponse>(`/admin/lessons?${params}`)
+  }
+
+  async adminCreateLesson(input: AdminCreateLessonInput): Promise<AdminLesson> {
+    return this.request<AdminLesson>('/admin/lessons', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    })
+  }
+
+  async adminUpdateLesson(id: string, input: AdminUpdateLessonInput): Promise<AdminLesson> {
+    return this.request<AdminLesson>(`/admin/lessons/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+    })
+  }
+
+  async adminDeleteLesson(id: string): Promise<AdminLesson> {
+    return this.request<AdminLesson>(`/admin/lessons/${id}`, {
+      method: 'DELETE',
+    })
+  }
+
+  async adminGetStats(): Promise<AdminStats> {
+    return this.request<AdminStats>('/admin/stats')
+  }
+}
+
+export interface AdminSkill {
+  id: string
+  name: string
+  description: string
+  category: string
+  createdAt: string
+  _count: { skillPaths: number }
+}
+
+export interface AdminCreateSkillInput {
+  name: string
+  description: string
+  category: string
+}
+
+export interface AdminCreateSkillPathInput {
+  skillId: string
+  level: string
+  durationHours: number
+}
+
+export interface AdminSkillPath {
+  id: string
+  level: string
+  durationHours: number
+  skill: { id: string; name: string }
+}
+
+export interface AdminLesson {
+  id: string
+  title: string
+  day: number
+  content: string
+  durationMinutes: number
+  difficulty: string
+  mediaUrl: string | null
+  published: boolean
+  publishedAt: string | null
+  skillPathId: string
+  createdAt: string
+  skillPath?: { level: string; skill: { name: string } }
+}
+
+export interface AdminLessonsResponse {
+  lessons: AdminLesson[]
+  total: number
+  page: number
+  pageSize: number
+}
+
+export interface AdminCreateLessonInput {
+  skillPathId: string
+  day: number
+  title: string
+  content: string
+  durationMinutes: number
+  difficulty: string
+  mediaUrl?: string
+}
+
+export interface AdminUpdateLessonInput {
+  title?: string
+  content?: string
+  durationMinutes?: number
+  difficulty?: string
+  mediaUrl?: string
+  published?: boolean
+  day?: number
+  skillPathId?: string
+}
+
+export interface AdminStats {
+  totalUsers: number
+  dau: number
+  activeSubscribers: number
+  mrr: number
+  lessonCompletionRate: number
 }
 
 export const apiClient = new ApiClient()

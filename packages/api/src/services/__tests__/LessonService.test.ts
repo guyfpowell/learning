@@ -105,6 +105,32 @@ describe('LessonService', () => {
       const result = await lessonService.getTodayLesson('u1');
       expect(result.id).toBe('lesson-1');
     });
+
+    it('filters out unpublished lessons from incomplete list', async () => {
+      const unpublishedLesson = { ...MOCK_LESSON, id: 'lesson-2', published: false };
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({ id: 'u1', profile: {} });
+      (prisma.userProgress.findMany as jest.Mock).mockResolvedValue([
+        { lessonId: 'lesson-2', completedAt: null, lesson: unpublishedLesson },
+      ]);
+      (prisma.lesson.findFirst as jest.Mock).mockResolvedValue(MOCK_LESSON);
+
+      const result = await lessonService.getTodayLesson('u1');
+      expect(result.id).toBe('lesson-1');
+      expect(prisma.lesson.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { published: true } })
+      );
+    });
+
+    it('fallback findFirst uses published: true filter', async () => {
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({ id: 'u1', profile: {} });
+      (prisma.userProgress.findMany as jest.Mock).mockResolvedValue([]);
+      (prisma.lesson.findFirst as jest.Mock).mockResolvedValue(MOCK_LESSON);
+
+      await lessonService.getTodayLesson('u1');
+      expect(prisma.lesson.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { published: true } })
+      );
+    });
   });
 
   describe('getLessonById', () => {

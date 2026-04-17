@@ -9,6 +9,7 @@ import lessonRoutes from './routes/lessons';
 import subscriptionRoutes from './routes/subscriptions';
 import notificationRoutes from './routes/notifications';
 import coachingRoutes from './routes/coaching';
+import adminRoutes from './routes/admin';
 import { startDailyReminderJob } from './jobs/dailyReminderJob';
 import { startStreakAtRiskJob } from './jobs/streakAtRiskJob';
 
@@ -49,6 +50,9 @@ app.use('/api/notifications', notificationRoutes);
 
 // AI Coaching routes (Pro/Premium tier only)
 app.use('/api/coaching', coachingRoutes);
+
+// Admin routes
+app.use('/api/admin', adminRoutes);
 
 // 404 handler
 app.use(notFoundHandler);
