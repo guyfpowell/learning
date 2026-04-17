@@ -15,13 +15,20 @@ interface AuthResponse {
   user: User
 }
 
-interface QuizSubmitResponse {
+interface QuizFeedback {
   quizId: string
+  question: string
   userAnswer: string
   correctAnswer: string
   isCorrect: boolean
-  score: number
   explanation: string
+}
+
+interface QuizSubmitResponse {
+  score: number
+  feedbacks: QuizFeedback[]
+  lesson: Lesson
+  coaching: string | null
 }
 
 interface ProgressResponse {
@@ -126,7 +133,7 @@ class ApiClient {
       `/lessons/${lessonId}/quiz`,
       {
         method: 'POST',
-        body: JSON.stringify({ quizId, answer }),
+        body: JSON.stringify({ answers: { [quizId]: answer } }),
       }
     )
   }
@@ -164,6 +171,17 @@ class ApiClient {
         body: JSON.stringify(prefs),
       }
     )
+  }
+
+  async registerPushToken(
+    token: string,
+    platform: 'expo' | 'web',
+    deviceId?: string
+  ): Promise<void> {
+    await this.request<void>('/notifications/push-token', {
+      method: 'POST',
+      body: JSON.stringify({ token, platform, deviceId }),
+    })
   }
 }
 

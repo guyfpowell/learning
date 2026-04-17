@@ -62,4 +62,7 @@ export interface QuizResult {
   score: number;
   feedbacks: QuizFeedback[];
   lesson: Lesson;
+  coaching: string | null; // AI coaching feedback for Pro/Premium users; null for free/starter or when unavailable
+  streak: number;          // Current streak count after this quiz
+  milestone: string | null; // Milestone label if streak hit one (e.g. "7-day streak"); null otherwise
 }

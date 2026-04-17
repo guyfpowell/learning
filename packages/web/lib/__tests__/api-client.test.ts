@@ -134,4 +134,52 @@ describe('ApiClient', () => {
       expect(result[0].name).toBe('Product Strategy')
     })
   })
+
+  describe('submitQuiz', () => {
+    it('sends answers in correct format and returns quiz result with coaching', async () => {
+      const mockResult = {
+        score: 100,
+        feedbacks: [
+          {
+            quizId: 'q1',
+            question: 'What is X?',
+            userAnswer: 'A',
+            correctAnswer: 'A',
+            isCorrect: true,
+            explanation: 'Because A.',
+          },
+        ],
+        lesson: { id: 'l1', title: 'Test' },
+        coaching: 'Well done! Keep it up.',
+      }
+
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true, data: mockResult }),
+      })
+
+      const result = await apiClient.submitQuiz('lesson-1', 'q1', 'A')
+
+      // Verify request body uses answers object format
+      const call = (global.fetch as jest.Mock).mock.calls[0]
+      const body = JSON.parse(call[1].body)
+      expect(body).toEqual({ answers: { q1: 'A' } })
+
+      expect(result.score).toBe(100)
+      expect(result.coaching).toBe('Well done! Keep it up.')
+    })
+
+    it('returns null coaching for non-pro users', async () => {
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: { score: 50, feedbacks: [], lesson: {}, coaching: null },
+        }),
+      })
+
+      const result = await apiClient.submitQuiz('lesson-1', 'q1', 'B')
+      expect(result.coaching).toBeNull()
+    })
+  })
 })

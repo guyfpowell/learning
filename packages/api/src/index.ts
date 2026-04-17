@@ -8,6 +8,9 @@ import userRoutes from './routes/users';
 import lessonRoutes from './routes/lessons';
 import subscriptionRoutes from './routes/subscriptions';
 import notificationRoutes from './routes/notifications';
+import coachingRoutes from './routes/coaching';
+import { startDailyReminderJob } from './jobs/dailyReminderJob';
+import { startStreakAtRiskJob } from './jobs/streakAtRiskJob';
 
 dotenv.config();
 
@@ -44,6 +47,9 @@ app.use('/api/subscriptions', subscriptionRoutes);
 // Notification routes
 app.use('/api/notifications', notificationRoutes);
 
+// AI Coaching routes (Pro/Premium tier only)
+app.use('/api/coaching', coachingRoutes);
+
 // 404 handler
 app.use(notFoundHandler);
 
@@ -59,6 +65,11 @@ app.listen(PORT, () => {
   console.log(`📚 Lesson routes: http://localhost:${PORT}/api/lessons`);
   console.log(`💳 Subscription routes: http://localhost:${PORT}/api/subscriptions`);
   console.log(`🔔 Notification routes: http://localhost:${PORT}/api/notifications`);
+
+  // Start background jobs
+  startDailyReminderJob();
+  startStreakAtRiskJob();
+  console.log(`⏰ Background jobs started (daily reminder + streak-at-risk)`);
 });
 
 export default app;

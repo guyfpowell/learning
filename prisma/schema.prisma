@@ -24,6 +24,9 @@ model User {
   subscriptions            Subscription[]
   notifications            Notification[]
   notificationPreferences  NotificationPreference?
+  generatedLessons         GeneratedLesson[]
+  skillRatings             UserSkillRating[]
+  pushTokens               PushToken[]
 
   @@map("users")
 }
@@ -52,7 +55,8 @@ model Skill {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  skillPaths SkillPath[]
+  skillPaths       SkillPath[]
+  userSkillRatings UserSkillRating[]
 
   @@map("skills")
 }
@@ -73,16 +77,18 @@ model SkillPath {
 }
 
 model Lesson {
-  id            String   @id @default(cuid())
-  skillPathId   String
-  day           Int      // 1-based: day 1, day 2, etc. in this skill path
-  title         String
-  content       String   @db.Text // Rich text or markdown
+  id              String   @id @default(cuid())
+  skillPathId     String
+  day             Int      // 1-based: day 1, day 2, etc. in this skill path
+  title           String
+  content         String   @db.Text // Rich text or markdown
   durationMinutes Int
-  mediaUrl      String?  // URL to video, image, or audio
-  difficulty    String   // "beginner", "intermediate", "advanced"
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  mediaUrl        String?  // URL to video, image, or audio
+  difficulty      String   // "beginner", "intermediate", "advanced"
+  isAiGenerated   Boolean  @default(false)
+  generatedModel  String?  // e.g. "llama3:8b", "gemini-1.5-flash" — for audit
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   skillPath SkillPath      @relation(fields: [skillPathId], references: [id], onDelete: Cascade)
   progress  UserProgress[]
@@ -110,15 +116,18 @@ model Quiz {
 
 // User progress tracking
 model UserProgress {
-  id             String   @id @default(cuid())
+  id             String    @id @default(cuid())
   userId         String
   lessonId       String
   completedAt    DateTime?
-  quizScore      Int?     // 0-100
-  streakCount    Int      @default(0) // consecutive days
+  quizScore      Int?      // 0-100 (existing)
+  streakCount    Int       @default(0) // consecutive days
   lastLessonDate DateTime? // for streak calculation
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  completionTime Int?      // seconds to complete lesson (Phase 7)
+  revisitCount   Int       @default(0) // how many times lesson was revisited (Phase 7)
+  rating         Int?      // thumbs: -1 down, 0 neutral, 1 up (Phase 7)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
@@ -197,6 +206,55 @@ model NotificationPreference {
 
   @@index([userId])
   @@map("notification_preferences")
+}
+
+// AI-generated lesson cache and audit log (Phase 6, Chunk 6.6)
+model GeneratedLesson {
+  id               String   @id @default(cuid())
+  userId           String
+  skillId          String   // cache key: one entry per user per skill
+  model            String   // AI model used for generation, e.g. "llama3:8b"
+  generatedContent Json     // stored LessonOutput JSON
+  coachingMessage  String?  // per-quiz coaching feedback (Phase 7, ADR-002)
+  generatedAt      DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, skillId])
+  @@index([userId])
+  @@map("generated_lessons")
+}
+
+// Per-user Elo skill ratings (Phase 7, Chunk 7.2)
+model UserSkillRating {
+  id        String   @id @default(cuid())
+  userId    String
+  skillId   String
+  rating    Int      @default(1000)
+  updatedAt DateTime @updatedAt
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skill Skill @relation(fields: [skillId], references: [id])
+
+  @@unique([userId, skillId])
+  @@map("user_skill_ratings")
+}
+
+// Push device tokens (web VAPID subscriptions + Expo push tokens)
+model PushToken {
+  id         String   @id @default(cuid())
+  userId     String
+  token      String   @db.Text  // Expo token or JSON-serialised WebPushSubscription
+  platform   String   // "expo" | "web"
+  deviceId   String?  // Expo device ID or browser fingerprint
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, platform, deviceId])
+  @@index([userId])
+  @@map("push_tokens")
 }
 
 // Notifications

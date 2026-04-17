@@ -3,6 +3,9 @@
 import { useEffect, useState } from 'react'
 import { apiClient } from '@/lib/api-client'
 import { useAuth } from '@/lib/auth-context'
+import { useWebPush } from '@/lib/useWebPush'
+import { useDarkMode } from '@/lib/useDarkMode'
+import { useToast } from '@/components/Toast'
 
 interface NotificationPreference {
   id: string
@@ -13,35 +16,66 @@ interface NotificationPreference {
   enableLessonAvailable: boolean
 }
 
+function Toggle({
+  checked,
+  onChange,
+  disabled,
+  label,
+  id,
+}: {
+  checked: boolean
+  onChange: (v: boolean) => void
+  disabled: boolean
+  label: string
+  id: string
+}) {
+  return (
+    <div className="flex items-center justify-between">
+      <label htmlFor={id} className="text-gray-800 dark:text-gray-200 font-medium text-sm cursor-pointer select-none">
+        {label}
+      </label>
+      <button
+        id={id}
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        aria-label={label}
+        disabled={disabled}
+        onClick={() => onChange(!checked)}
+        className={`relative inline-flex h-6 w-11 flex-shrink-0 rounded-full transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed ${
+          checked ? 'bg-blue-600' : 'bg-gray-200 dark:bg-gray-600'
+        }`}
+      >
+        <span
+          aria-hidden="true"
+          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out mt-0.5 ${
+            checked ? 'translate-x-5' : 'translate-x-0.5'
+          }`}
+        />
+      </button>
+    </div>
+  )
+}
+
 export default function SettingsPage() {
   const { user } = useAuth()
   const [prefs, setPrefs] = useState<NotificationPreference | null>(null)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
+  const { status: pushStatus, subscribe: subscribePush } = useWebPush()
+  const [darkMode, setDarkMode] = useDarkMode()
+  const { toast } = useToast()
 
   useEffect(() => {
-    const loadPrefs = async () => {
-      try {
-        const data = await apiClient.getNotificationPreferences()
-        setPrefs(data)
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load preferences')
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    loadPrefs()
+    apiClient.getNotificationPreferences()
+      .then(setPrefs)
+      .catch(() => toast('Failed to load settings', 'error'))
+      .finally(() => setLoading(false))
   }, [])
 
   const handleSave = async () => {
     if (!prefs) return
     setSubmitting(true)
-    setError('')
-    setSuccess('')
-
     try {
       await apiClient.updateNotificationPreferences({
         enableDailyReminder: prefs.enableDailyReminder,
@@ -49,9 +83,9 @@ export default function SettingsPage() {
         enableStreak: prefs.enableStreak,
         enableLessonAvailable: prefs.enableLessonAvailable,
       })
-      setSuccess('Settings saved successfully')
+      toast('Settings saved', 'success')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save settings')
+      toast(err instanceof Error ? err.message : 'Failed to save settings', 'error')
     } finally {
       setSubmitting(false)
     }
@@ -59,152 +93,161 @@ export default function SettingsPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="max-w-2xl mx-auto space-y-4" aria-busy="true" aria-label="Loading settings">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 animate-pulse">
+            <div className="h-5 w-32 bg-gray-200 dark:bg-gray-700 rounded mb-4" />
+            <div className="space-y-3">
+              <div className="h-4 w-full bg-gray-200 dark:bg-gray-700 rounded" />
+              <div className="h-4 w-3/4 bg-gray-200 dark:bg-gray-700 rounded" />
+            </div>
+          </div>
+        ))}
       </div>
     )
   }
 
   return (
-    <div className="max-w-2xl mx-auto">
-      <div className="bg-white rounded-lg shadow-md p-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-6">Settings</h1>
+    <div className="max-w-2xl mx-auto space-y-6">
+      <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Settings</h1>
 
-        {error && (
-          <div className="mb-4 p-3 bg-red-100 text-red-700 rounded">
-            {error}
+      {/* Profile */}
+      <section aria-labelledby="profile-heading" className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+        <h2 id="profile-heading" className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-4">Profile</h2>
+        <div className="space-y-4">
+          <div>
+            <label htmlFor="name-field" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name</label>
+            <input
+              id="name-field"
+              type="text"
+              value={user?.name || ''}
+              disabled
+              aria-readonly="true"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 text-sm cursor-not-allowed"
+            />
           </div>
-        )}
-
-        {success && (
-          <div className="mb-4 p-3 bg-green-100 text-green-700 rounded">
-            {success}
-          </div>
-        )}
-
-        {/* Profile Section */}
-        <div className="mb-8 pb-8 border-b border-gray-200">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Profile</h2>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-gray-700 font-semibold mb-2">
-                Name
-              </label>
-              <input
-                type="text"
-                value={user?.name || ''}
-                disabled
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed"
-              />
-            </div>
-            <div>
-              <label className="block text-gray-700 font-semibold mb-2">
-                Email
-              </label>
-              <input
-                type="email"
-                value={user?.email || ''}
-                disabled
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed"
-              />
-            </div>
+          <div>
+            <label htmlFor="email-field" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
+            <input
+              id="email-field"
+              type="email"
+              value={user?.email || ''}
+              disabled
+              aria-readonly="true"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 text-sm cursor-not-allowed"
+            />
           </div>
         </div>
+      </section>
 
-        {/* Notification Settings */}
-        {prefs && (
-          <div className="space-y-6">
-            <h2 className="text-xl font-bold text-gray-900">Notifications</h2>
+      {/* Appearance */}
+      <section aria-labelledby="appearance-heading" className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+        <h2 id="appearance-heading" className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-4">Appearance</h2>
+        <Toggle
+          id="dark-mode-toggle"
+          label="Dark mode"
+          checked={darkMode}
+          onChange={setDarkMode}
+          disabled={false}
+        />
+      </section>
 
-            <div className="space-y-4">
-              <label className="flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={prefs.enableDailyReminder}
-                  onChange={(e) =>
-                    setPrefs({
-                      ...prefs,
-                      enableDailyReminder: e.target.checked,
-                    })
-                  }
+      {/* Notifications */}
+      {prefs && (
+        <section aria-labelledby="notifications-heading" className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+          <h2 id="notifications-heading" className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-4">Notifications</h2>
+
+          <div className="space-y-5">
+            <Toggle
+              id="daily-reminder-toggle"
+              label="Daily lesson reminder"
+              checked={prefs.enableDailyReminder}
+              onChange={(v) => setPrefs({ ...prefs, enableDailyReminder: v })}
+              disabled={submitting}
+            />
+
+            {prefs.enableDailyReminder && (
+              <div className="ml-0 pl-4 border-l-2 border-blue-200 dark:border-blue-700">
+                <label htmlFor="reminder-time" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Reminder time
+                </label>
+                <select
+                  id="reminder-time"
+                  value={prefs.reminderTime || 'morning'}
+                  onChange={(e) => setPrefs({ ...prefs, reminderTime: e.target.value as 'morning' | 'afternoon' | 'evening' })}
                   disabled={submitting}
-                  className="mr-3 w-4 h-4"
-                />
-                <span className="text-gray-800 font-semibold">
-                  Enable Daily Reminder
-                </span>
-              </label>
+                  className="w-full max-w-xs px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  aria-label="Select reminder time"
+                >
+                  <option value="morning">Morning (8 AM)</option>
+                  <option value="afternoon">Afternoon (1 PM)</option>
+                  <option value="evening">Evening (7 PM)</option>
+                </select>
+              </div>
+            )}
 
-              {prefs.enableDailyReminder && (
-                <div className="ml-7">
-                  <label className="block text-gray-700 font-semibold mb-2">
-                    Reminder Time
-                  </label>
-                  <select
-                    value={prefs.reminderTime || 'morning'}
-                    onChange={(e) =>
-                      setPrefs({
-                        ...prefs,
-                        reminderTime: e.target.value as 'morning' | 'afternoon' | 'evening',
-                      })
-                    }
-                    disabled={submitting}
-                    className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+            <Toggle
+              id="streak-toggle"
+              label="Streak milestone notifications"
+              checked={prefs.enableStreak}
+              onChange={(v) => setPrefs({ ...prefs, enableStreak: v })}
+              disabled={submitting}
+            />
+
+            <Toggle
+              id="lesson-available-toggle"
+              label="New lesson available alerts"
+              checked={prefs.enableLessonAvailable}
+              onChange={(v) => setPrefs({ ...prefs, enableLessonAvailable: v })}
+              disabled={submitting}
+            />
+
+            {/* Browser push subscription */}
+            {pushStatus !== 'unsupported' && (
+              <div className="pt-4 border-t border-gray-100 dark:border-gray-700">
+                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+                  Browser Push
+                </p>
+                {pushStatus === 'subscribed' ? (
+                  <p className="text-sm text-green-600 dark:text-green-400 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-green-500" aria-hidden="true" />
+                    Browser notifications enabled
+                  </p>
+                ) : pushStatus === 'denied' ? (
+                  <p className="text-sm text-amber-600 dark:text-amber-400">
+                    Blocked — update site permissions in your browser to enable.
+                  </p>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={subscribePush}
+                    className="text-sm px-4 py-2 border border-blue-500 text-blue-600 dark:text-blue-400 dark:border-blue-400 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/30 transition focus-visible:ring-2 focus-visible:ring-blue-500"
+                    aria-label="Enable browser push notifications"
                   >
-                    <option value="morning">Morning</option>
-                    <option value="afternoon">Afternoon</option>
-                    <option value="evening">Evening</option>
-                  </select>
-                </div>
-              )}
+                    Enable browser notifications
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
 
-              <label className="flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={prefs.enableStreak}
-                  onChange={(e) =>
-                    setPrefs({
-                      ...prefs,
-                      enableStreak: e.target.checked,
-                    })
-                  }
-                  disabled={submitting}
-                  className="mr-3 w-4 h-4"
-                />
-                <span className="text-gray-800 font-semibold">
-                  Notify on Streak Milestones
-                </span>
-              </label>
-
-              <label className="flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={prefs.enableLessonAvailable}
-                  onChange={(e) =>
-                    setPrefs({
-                      ...prefs,
-                      enableLessonAvailable: e.target.checked,
-                    })
-                  }
-                  disabled={submitting}
-                  className="mr-3 w-4 h-4"
-                />
-                <span className="text-gray-800 font-semibold">
-                  Notify When New Lesson Available
-                </span>
-              </label>
-            </div>
-
+          <div className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-700">
             <button
               onClick={handleSave}
               disabled={submitting}
-              className="px-6 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:bg-gray-400 transition"
+              aria-label="Save notification settings"
+              className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg disabled:bg-gray-400 dark:disabled:bg-gray-600 transition focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 text-sm"
             >
-              {submitting ? 'Saving...' : 'Save Settings'}
+              {submitting ? (
+                <span className="flex items-center gap-2">
+                  <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" aria-hidden="true" />
+                  Saving…
+                </span>
+              ) : 'Save Settings'}
             </button>
           </div>
-        )}
-      </div>
+        </section>
+      )}
     </div>
   )
 }

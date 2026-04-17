@@ -120,16 +120,19 @@ describe('LessonController', () => {
   });
 
   describe('submitQuiz', () => {
-    it('should submit quiz and return score', async () => {
+    it('submits quiz and passes tier from planName', async () => {
       const req = {
         user: { id: 'user-1' },
         params: { id: 'lesson-1' },
         body: { answers: { 'quiz-1': '4' } },
+        planName: 'pro',
       } as any;
 
       const mockResult = {
         score: 100,
         feedbacks: [{ isCorrect: true }],
+        lesson: { id: 'lesson-1' },
+        coaching: 'Great work!',
       };
 
       (lessonService.submitQuiz as jest.Mock).mockResolvedValue(mockResult);
@@ -139,12 +142,37 @@ describe('LessonController', () => {
       expect(lessonService.submitQuiz).toHaveBeenCalledWith(
         'user-1',
         'lesson-1',
-        { 'quiz-1': '4' }
+        { 'quiz-1': '4' },
+        'pro'
       );
       expect(mockRes.status).toHaveBeenCalledWith(200);
+      expect(mockRes.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ coaching: 'Great work!' }),
+        })
+      );
     });
 
-    it('should return 400 if answers missing', async () => {
+    it('defaults to free tier when planName not set', async () => {
+      const req = {
+        user: { id: 'user-1' },
+        params: { id: 'lesson-1' },
+        body: { answers: {} },
+        // planName not set
+      } as any;
+
+      (lessonService.submitQuiz as jest.Mock).mockResolvedValue({
+        score: 0, feedbacks: [], lesson: {}, coaching: null,
+      });
+
+      await lessonController.submitQuiz(req, mockRes as Response, mockNext);
+
+      expect(lessonService.submitQuiz).toHaveBeenCalledWith(
+        'user-1', 'lesson-1', {}, 'free'
+      );
+    });
+
+    it('returns 400 if answers missing', async () => {
       const req = {
         user: { id: 'user-1' },
         params: { id: 'lesson-1' },

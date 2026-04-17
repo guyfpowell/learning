@@ -24,6 +24,7 @@
         "../shared/src"
       ]
     },
+    "types": ["@testing-library/jest-dom"],
     "allowJs": true,
     "incremental": true,
     "plugins": [

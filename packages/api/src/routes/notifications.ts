@@ -17,4 +17,9 @@ router.patch('/preferences', (req, res, next) =>
   notificationPreferenceController.updatePreferences(req, res, next)
 );
 
+// Register push token (web VAPID subscription or Expo push token)
+router.post('/push-token', (req, res, next) =>
+  notificationPreferenceController.registerPushToken(req, res, next)
+);
+
 export default router;

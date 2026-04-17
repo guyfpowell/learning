@@ -20,36 +20,40 @@ export default function DashboardLayout({
 
   return (
     <ProtectedRoute>
-      <div className="flex h-screen bg-gray-100">
+      <div className="flex h-screen bg-gray-100 dark:bg-gray-900">
         {/* Sidebar */}
-        <div className="w-64 bg-blue-900 text-white shadow-lg">
+        <div className="w-64 bg-blue-900 dark:bg-gray-800 text-white shadow-lg flex flex-col">
           <div className="p-6">
             <h1 className="text-2xl font-bold">Learn</h1>
           </div>
-          <nav className="mt-8">
+          <nav className="mt-4 flex-1" aria-label="Main navigation">
             <Link
-              href="/dashboard"
-              className="block px-6 py-3 hover:bg-blue-800 transition"
+              href="/"
+              className="block px-6 py-3 hover:bg-blue-800 dark:hover:bg-gray-700 transition focus-visible:bg-blue-800 focus-visible:outline-none"
+              aria-label="Go to dashboard"
             >
               Dashboard
             </Link>
             <Link
               href="/progress"
-              className="block px-6 py-3 hover:bg-blue-800 transition"
+              className="block px-6 py-3 hover:bg-blue-800 dark:hover:bg-gray-700 transition focus-visible:bg-blue-800 focus-visible:outline-none"
+              aria-label="View progress"
             >
               Progress
             </Link>
             <Link
               href="/settings"
-              className="block px-6 py-3 hover:bg-blue-800 transition"
+              className="block px-6 py-3 hover:bg-blue-800 dark:hover:bg-gray-700 transition focus-visible:bg-blue-800 focus-visible:outline-none"
+              aria-label="Open settings"
             >
               Settings
             </Link>
           </nav>
-          <div className="absolute bottom-6 left-6 right-6">
+          <div className="p-6">
             <button
               onClick={handleLogout}
-              className="w-full px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition"
+              aria-label="Log out of your account"
+              className="w-full px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-2"
             >
               Logout
             </button>
@@ -57,18 +61,18 @@ export default function DashboardLayout({
         </div>
 
         {/* Main content */}
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col overflow-hidden">
           {/* Header */}
-          <div className="bg-white shadow px-6 py-4 flex justify-between items-center">
-            <h2 className="text-2xl font-bold text-gray-900">
+          <header className="bg-white dark:bg-gray-800 shadow px-6 py-4 flex justify-between items-center flex-shrink-0">
+            <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
               Welcome back, {user?.name}!
             </h2>
-          </div>
+          </header>
 
           {/* Content */}
-          <div className="flex-1 overflow-auto p-6">
+          <main className="flex-1 overflow-auto p-6" id="main-content">
             {children}
-          </div>
+          </main>
         </div>
       </div>
     </ProtectedRoute>

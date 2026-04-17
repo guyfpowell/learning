@@ -3,6 +3,7 @@ import { AuthenticatedRequest } from '../middleware/auth';
 import { lessonService } from '../services/LessonService';
 import { AppError } from '../middleware/error-handler';
 import { ERROR_CODES } from '@learning/shared';
+import type { PlanRequest } from '../middleware/plan';
 
 export class LessonController {
   async getTodayLesson(
@@ -102,7 +103,7 @@ export class LessonController {
   }
 
   async submitQuiz(
-    req: AuthenticatedRequest,
+    req: PlanRequest,
     res: Response,
     next: NextFunction
   ) {
@@ -137,7 +138,8 @@ export class LessonController {
       const result = await lessonService.submitQuiz(
         req.user.id,
         id,
-        answers
+        answers,
+        req.planName ?? 'free'
       );
 
       res.status(200).json({

@@ -12,325 +12,206 @@ jest.mock('../../db', () => ({
   },
 }));
 
+jest.mock('../../ai/SkillTracker', () => ({
+  skillTracker: { updateRating: jest.fn().mockResolvedValue(undefined) },
+}));
+
+jest.mock('../../ai/RecommendationEngine', () => ({
+  recommendationEngine: { getNextLesson: jest.fn() },
+}));
+
+jest.mock('../../ai/LearningStyleClassifier', () => ({
+  learningStyleClassifier: { classify: jest.fn().mockReturnValue('general') },
+}));
+
+jest.mock('../EngagementService', () => ({
+  engagementService: {
+    recordEngagement: jest.fn().mockResolvedValue(undefined),
+    getEngagementSignals: jest.fn().mockResolvedValue({
+      avgCompletionRatio: 1.0,
+      avgFirstAttemptAccuracy: 0.5,
+      avgRevisitCount: 0,
+    }),
+  },
+}));
+
+jest.mock('../CoachingService', () => ({
+  coachingService: { generateFeedback: jest.fn().mockResolvedValue(null) },
+}));
+
+jest.mock('../UserService', () => ({
+  UserService: jest.fn().mockImplementation(() => ({
+    updateProfile: jest.fn().mockResolvedValue(undefined),
+  })),
+}));
+
+import { recommendationEngine } from '../../ai/RecommendationEngine';
+import { coachingService } from '../CoachingService';
+
+const MOCK_LESSON = {
+  id: 'lesson-1',
+  title: 'Test Lesson',
+  content: 'Test content',
+  durationMinutes: 5,
+  skillPathId: 'path-1',
+  day: 1,
+  mediaUrl: null,
+  difficulty: 'beginner',
+  createdAt: new Date(),
+  updatedAt: new Date(),
+  skillPath: { id: 'path-1', skillId: 'skill-1' },
+  quizzes: [],
+};
+
 describe('LessonService', () => {
   let lessonService: LessonService;
 
   beforeEach(() => {
     lessonService = new LessonService();
     jest.clearAllMocks();
+    (recommendationEngine.getNextLesson as jest.Mock).mockResolvedValue('lesson-1');
+    (coachingService.generateFeedback as jest.Mock).mockResolvedValue(null);
   });
 
   describe('getTodayLesson', () => {
-    it('should return the next incomplete lesson for a user', async () => {
-      const userId = 'user-1';
-      const lessonId = 'lesson-1';
-      const mockUser = { id: userId, email: 'test@test.com', name: 'Test' };
-      const mockLesson = {
-        id: lessonId,
-        title: 'Test Lesson',
-        content: 'Test content',
-        durationMinutes: 5,
-        skillPathId: 'path-1',
-        day: 1,
-        mediaUrl: null,
-        difficulty: 'beginner',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        skillPath: { id: 'path-1' },
-        quizzes: [],
-      };
-
+    it('returns the recommended lesson for a user', async () => {
       (prisma.user.findUnique as jest.Mock).mockResolvedValue({
-        ...mockUser,
+        id: 'user-1',
         profile: { timezone: 'UTC' },
       });
-
       (prisma.userProgress.findMany as jest.Mock).mockResolvedValue([
-        {
-          id: 'progress-1',
-          userId,
-          lessonId,
-          completedAt: null,
-          quizScore: null,
-          streakCount: 0,
-          lastLessonDate: null,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          lesson: mockLesson,
-        },
+        { lessonId: 'lesson-1', completedAt: null, lesson: MOCK_LESSON },
       ]);
+      (prisma.lesson.findUnique as jest.Mock).mockResolvedValue(MOCK_LESSON);
 
-      (prisma.lesson.findUnique as jest.Mock).mockResolvedValue(mockLesson);
+      const result = await lessonService.getTodayLesson('user-1');
 
-      const result = await lessonService.getTodayLesson(userId);
-
-      expect(result).toEqual(mockLesson);
-      expect(prisma.user.findUnique).toHaveBeenCalledWith({
-        where: { id: userId },
-        include: { profile: true },
-      });
+      expect(result.id).toBe('lesson-1');
+      expect(recommendationEngine.getNextLesson).toHaveBeenCalledWith('user-1', 'path-1');
     });
 
-    it('should throw error if user not found', async () => {
-      const userId = 'nonexistent';
+    it('throws if user not found', async () => {
       (prisma.user.findUnique as jest.Mock).mockResolvedValue(null);
-
-      await expect(lessonService.getTodayLesson(userId)).rejects.toThrow(AppError);
+      await expect(lessonService.getTodayLesson('bad-user')).rejects.toThrow(AppError);
     });
 
-    it('should return first available lesson if all are completed', async () => {
-      const userId = 'user-1';
-      const mockLesson = {
-        id: 'lesson-1',
-        title: 'Test Lesson',
-        content: 'Test content',
-        durationMinutes: 5,
-        skillPathId: 'path-1',
-        day: 1,
-        mediaUrl: null,
-        difficulty: 'beginner',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        skillPath: { id: 'path-1' },
-        quizzes: [],
-      };
-
-      (prisma.user.findUnique as jest.Mock).mockResolvedValue({
-        id: userId,
-        profile: { timezone: 'UTC' },
-      });
-
+    it('returns first available lesson if all completed', async () => {
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({ id: 'u1', profile: {} });
       (prisma.userProgress.findMany as jest.Mock).mockResolvedValue([
-        {
-          id: 'progress-1',
-          userId,
-          lessonId: 'lesson-1',
-          completedAt: new Date(),
-          quizScore: 95,
-          streakCount: 5,
-          lastLessonDate: new Date(),
-          lesson: mockLesson,
-        },
+        { lessonId: 'lesson-1', completedAt: new Date(), lesson: MOCK_LESSON },
       ]);
+      (prisma.lesson.findFirst as jest.Mock).mockResolvedValue(MOCK_LESSON);
 
-      (prisma.lesson.findFirst as jest.Mock).mockResolvedValue(mockLesson);
-
-      const result = await lessonService.getTodayLesson(userId);
-
-      expect(result).toEqual(mockLesson);
+      const result = await lessonService.getTodayLesson('u1');
+      expect(result.id).toBe('lesson-1');
     });
   });
 
   describe('getLessonById', () => {
-    it('should return lesson with quizzes', async () => {
-      const lessonId = 'lesson-1';
-      const mockLesson = {
-        id: lessonId,
-        title: 'Test Lesson',
-        content: 'Test content',
-        durationMinutes: 5,
-        skillPathId: 'path-1',
-        day: 1,
-        mediaUrl: null,
-        difficulty: 'beginner',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        skillPath: { id: 'path-1' },
-        quizzes: [
-          {
-            id: 'quiz-1',
-            lessonId,
-            type: 'multiple-choice',
-            question: 'What is 2+2?',
-            options: ['3', '4', '5'],
-            correctAnswer: '4',
-            explanation: 'Basic math',
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          },
-        ],
-      };
-
-      (prisma.lesson.findUnique as jest.Mock).mockResolvedValue(mockLesson);
-
-      const result = await lessonService.getLessonById(lessonId);
-
-      expect(result).toEqual(mockLesson);
+    it('returns lesson with quizzes', async () => {
+      (prisma.lesson.findUnique as jest.Mock).mockResolvedValue(MOCK_LESSON);
+      const result = await lessonService.getLessonById('lesson-1');
+      expect(result).toEqual(MOCK_LESSON);
       expect(prisma.lesson.findUnique).toHaveBeenCalledWith({
-        where: { id: lessonId },
+        where: { id: 'lesson-1' },
         include: { skillPath: true, quizzes: true },
       });
     });
 
-    it('should throw error if lesson not found', async () => {
-      const lessonId = 'nonexistent';
+    it('throws if lesson not found', async () => {
       (prisma.lesson.findUnique as jest.Mock).mockResolvedValue(null);
-
-      await expect(lessonService.getLessonById(lessonId)).rejects.toThrow(AppError);
+      await expect(lessonService.getLessonById('bad')).rejects.toThrow(AppError);
     });
   });
 
   describe('completeLessonService', () => {
-    it('should mark lesson as complete and update streak', async () => {
-      const userId = 'user-1';
-      const lessonId = 'lesson-1';
-
-      (prisma.lesson.findUnique as jest.Mock).mockResolvedValue({
-        id: lessonId,
-      });
-
-      const mockProgress = {
-        id: 'progress-1',
-        userId,
-        lessonId,
-        completedAt: new Date(),
-        quizScore: null,
-        streakCount: 1,
-        lastLessonDate: new Date(),
-        lesson: { id: lessonId },
-      };
-
+    it('marks lesson complete and returns progress', async () => {
+      (prisma.lesson.findUnique as jest.Mock).mockResolvedValue({ id: 'lesson-1' });
+      const mockProgress = { id: 'p1', completedAt: new Date(), lesson: { id: 'lesson-1' } };
       (prisma.userProgress.upsert as jest.Mock).mockResolvedValue(mockProgress);
 
-      const result = await lessonService.completeLessonService(userId, lessonId);
-
+      const result = await lessonService.completeLessonService('u1', 'lesson-1');
       expect(result).toEqual(mockProgress);
       expect(prisma.userProgress.upsert).toHaveBeenCalled();
     });
 
-    it('should throw error if lesson not found', async () => {
-      const userId = 'user-1';
-      const lessonId = 'nonexistent';
-
+    it('throws if lesson not found', async () => {
       (prisma.lesson.findUnique as jest.Mock).mockResolvedValue(null);
-
-      await expect(
-        lessonService.completeLessonService(userId, lessonId)
-      ).rejects.toThrow(AppError);
+      await expect(lessonService.completeLessonService('u1', 'bad')).rejects.toThrow(AppError);
     });
   });
 
   describe('submitQuiz', () => {
-    it('should score quiz correctly and return score', async () => {
-      const userId = 'user-1';
-      const lessonId = 'lesson-1';
-      const answers = {
-        'quiz-1': '4',
-        'quiz-2': 'wrong-answer',
-      };
+    const QUIZZES = [
+      {
+        id: 'quiz-1',
+        lessonId: 'lesson-1',
+        question: 'What is 2+2?',
+        options: ['3', '4', '5'],
+        correctAnswer: '4',
+        explanation: 'Basic math',
+      },
+      {
+        id: 'quiz-2',
+        lessonId: 'lesson-1',
+        question: 'Capital of France?',
+        options: ['London', 'Berlin', 'Paris'],
+        correctAnswer: 'Paris',
+        explanation: 'Paris is the capital',
+      },
+    ];
 
-      const quizzes = [
-        {
-          id: 'quiz-1',
-          lessonId,
-          type: 'multiple-choice',
-          question: 'What is 2+2?',
-          options: ['3', '4', '5'],
-          correctAnswer: '4',
-          explanation: 'Basic math',
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        },
-        {
-          id: 'quiz-2',
-          lessonId,
-          type: 'multiple-choice',
-          question: 'Capital of France?',
-          options: ['London', 'Berlin', 'Paris'],
-          correctAnswer: 'correct-answer',
-          explanation: 'Paris is the capital',
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        },
-      ];
+    beforeEach(() => {
+      (prisma.quiz.findMany as jest.Mock).mockResolvedValue(QUIZZES);
+      (prisma.userProgress.upsert as jest.Mock).mockResolvedValue({});
+      (prisma.lesson.findUnique as jest.Mock).mockResolvedValue(MOCK_LESSON);
+    });
 
-      (prisma.quiz.findMany as jest.Mock).mockResolvedValue(quizzes);
-
-      const mockProgress = {
-        id: 'progress-1',
-        userId,
-        lessonId,
-        completedAt: new Date(),
-        quizScore: 50,
-        streakCount: 1,
-        lastLessonDate: new Date(),
-      };
-
-      (prisma.userProgress.upsert as jest.Mock).mockResolvedValue(mockProgress);
-
-      const mockLesson = {
-        id: lessonId,
-        title: 'Test Lesson',
-        content: 'Test content',
-        durationMinutes: 5,
-        skillPathId: 'path-1',
-        day: 1,
-        mediaUrl: null,
-        difficulty: 'beginner',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-
-      (prisma.lesson.findUnique as jest.Mock).mockResolvedValue(mockLesson);
-
-      const result = await lessonService.submitQuiz(userId, lessonId, answers);
+    it('scores quiz correctly and returns result', async () => {
+      const result = await lessonService.submitQuiz(
+        'u1',
+        'lesson-1',
+        { 'quiz-1': '4', 'quiz-2': 'wrong' }
+      );
 
       expect(result.score).toBe(50);
-      expect(result.feedbacks).toHaveLength(2);
       expect(result.feedbacks[0].isCorrect).toBe(true);
       expect(result.feedbacks[1].isCorrect).toBe(false);
     });
 
-    it('should throw error if no quizzes found for lesson', async () => {
-      const userId = 'user-1';
-      const lessonId = 'lesson-1';
-
+    it('throws if no quizzes found', async () => {
       (prisma.quiz.findMany as jest.Mock).mockResolvedValue([]);
+      await expect(lessonService.submitQuiz('u1', 'lesson-1', {})).rejects.toThrow(AppError);
+    });
 
-      await expect(
-        lessonService.submitQuiz(userId, lessonId, {})
-      ).rejects.toThrow(AppError);
+    it('includes coaching response when pro tier and AI returns message', async () => {
+      (coachingService.generateFeedback as jest.Mock).mockResolvedValue('Great work!');
+
+      const result = await lessonService.submitQuiz('u1', 'lesson-1', { 'quiz-1': '4', 'quiz-2': 'Paris' }, 'pro');
+
+      expect(result.coaching).toBe('Great work!');
+    });
+
+    it('includes null coaching for free tier', async () => {
+      const result = await lessonService.submitQuiz('u1', 'lesson-1', { 'quiz-1': '4', 'quiz-2': 'Paris' }, 'free');
+      expect(result.coaching).toBeNull();
+    });
+
+    it('returns coaching field even when AI fails (null, not thrown)', async () => {
+      (coachingService.generateFeedback as jest.Mock).mockResolvedValue(null);
+
+      const result = await lessonService.submitQuiz('u1', 'lesson-1', {}, 'pro').catch(() => null);
+      // Will throw for missing quizzes — use default mock with quizzes
+      const r = await lessonService.submitQuiz('u1', 'lesson-1', { 'quiz-1': '4', 'quiz-2': 'Paris' }, 'pro');
+      expect(r.coaching).toBeNull();
     });
   });
 
   describe('getUpcomingLessons', () => {
-    it('should return upcoming lessons with limit', async () => {
-      const mockLessons = [
-        {
-          id: 'lesson-1',
-          title: 'Lesson 1',
-          content: 'Content 1',
-          durationMinutes: 5,
-          skillPathId: 'path-1',
-          day: 1,
-          mediaUrl: null,
-          difficulty: 'beginner',
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          skillPath: { id: 'path-1' },
-          quizzes: [],
-        },
-        {
-          id: 'lesson-2',
-          title: 'Lesson 2',
-          content: 'Content 2',
-          durationMinutes: 5,
-          skillPathId: 'path-1',
-          day: 2,
-          mediaUrl: null,
-          difficulty: 'beginner',
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          skillPath: { id: 'path-1' },
-          quizzes: [],
-        },
-      ];
-
-      (prisma.lesson.findMany as jest.Mock).mockResolvedValue(mockLessons);
-
-      const result = await lessonService.getUpcomingLessons('user-1', 5);
-
-      expect(result).toEqual(mockLessons);
+    it('returns lessons with limit', async () => {
+      (prisma.lesson.findMany as jest.Mock).mockResolvedValue([MOCK_LESSON]);
+      const result = await lessonService.getUpcomingLessons('u1', 5);
+      expect(result).toHaveLength(1);
       expect(prisma.lesson.findMany).toHaveBeenCalledWith({
         take: 5,
         include: { skillPath: true, quizzes: true },

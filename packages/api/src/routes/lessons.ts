@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { lessonController } from '../controllers/LessonController';
 import { authMiddleware } from '../middleware/auth';
+import { detectPlan } from '../middleware/plan';
 
 const router = Router();
 
@@ -22,8 +23,8 @@ router.post('/:id/complete', (req, res, next) =>
   lessonController.completeLesson(req, res, next)
 );
 
-// Submit quiz answers
-router.post('/:id/quiz', (req, res, next) =>
+// Submit quiz answers — detectPlan enriches req.planName for coaching (non-blocking)
+router.post('/:id/quiz', detectPlan, (req, res, next) =>
   lessonController.submitQuiz(req, res, next)
 );
 
