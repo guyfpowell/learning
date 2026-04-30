@@ -10,6 +10,7 @@ import subscriptionRoutes from './routes/subscriptions';
 import notificationRoutes from './routes/notifications';
 import coachingRoutes from './routes/coaching';
 import adminRoutes from './routes/admin';
+import teamRoutes from './routes/teams';
 import { startDailyReminderJob } from './jobs/dailyReminderJob';
 import { startStreakAtRiskJob } from './jobs/streakAtRiskJob';
 
@@ -53,6 +54,9 @@ app.use('/api/coaching', coachingRoutes);
 
 // Admin routes
 app.use('/api/admin', adminRoutes);
+
+// Team routes
+app.use('/api/teams', teamRoutes);
 
 // 404 handler
 app.use(notFoundHandler);

@@ -14,6 +14,7 @@ export interface CreateSkillPathInput {
   skillId: string;
   level: string;
   durationHours: number;
+  teamId?: string;
 }
 
 export interface CreateLessonInput {

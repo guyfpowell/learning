@@ -244,6 +244,42 @@ class ApiClient {
   async adminGetStats(): Promise<AdminStats> {
     return this.request<AdminStats>('/admin/stats')
   }
+
+  async createTeam(name: string, slug?: string): Promise<Team> {
+    return this.request<Team>('/teams', { method: 'POST', body: JSON.stringify({ name, slug }) })
+  }
+
+  async getTeam(teamId: string): Promise<Team> {
+    return this.request<Team>(`/teams/${teamId}`)
+  }
+
+  async inviteTeamMember(teamId: string, email: string): Promise<{ token: string; email: string }> {
+    return this.request(`/teams/${teamId}/invite`, { method: 'POST', body: JSON.stringify({ email }) })
+  }
+
+  async acceptTeamInvite(teamId: string, token: string): Promise<TeamMember> {
+    return this.request<TeamMember>(`/teams/${teamId}/accept-invite`, { method: 'POST', body: JSON.stringify({ token }) })
+  }
+
+  async removeTeamMember(teamId: string, userId: string): Promise<void> {
+    return this.request(`/teams/${teamId}/members/${userId}`, { method: 'DELETE' })
+  }
+
+  async getTeamAnalytics(teamId: string): Promise<TeamSummary> {
+    return this.request<TeamSummary>(`/teams/${teamId}/analytics`)
+  }
+
+  async getTeamMemberProgress(teamId: string): Promise<MemberProgress[]> {
+    return this.request<MemberProgress[]>(`/teams/${teamId}/members/progress`)
+  }
+
+  async getTeamSkillGaps(teamId: string): Promise<SkillGap[]> {
+    return this.request<SkillGap[]>(`/teams/${teamId}/skill-gaps`)
+  }
+
+  async getTeamLeaderboard(teamId: string): Promise<LeaderboardEntry[]> {
+    return this.request<LeaderboardEntry[]>(`/teams/${teamId}/leaderboard`)
+  }
 }
 
 export interface AdminSkill {
@@ -323,6 +359,55 @@ export interface AdminStats {
   activeSubscribers: number
   mrr: number
   lessonCompletionRate: number
+}
+
+export interface TeamMember {
+  id: string
+  teamId: string
+  userId: string
+  role: 'admin' | 'member'
+  joinedAt: string
+  user?: { id: string; name: string; email: string }
+}
+
+export interface Team {
+  id: string
+  name: string
+  slug: string
+  ownerId: string
+  createdAt: string
+  members: TeamMember[]
+}
+
+export interface TeamSummary {
+  memberCount: number
+  totalCompletions: number
+  avgQuizScore: number
+  avgStreak: number
+}
+
+export interface MemberProgress {
+  userId: string
+  name: string
+  email: string
+  lessonsCompleted: number
+  avgScore: number
+  streak: number
+  lastActive: string | null
+  currentSkill: string | null
+}
+
+export interface SkillGap {
+  skillName: string
+  avgScore: number
+  sampleSize: number
+}
+
+export interface LeaderboardEntry {
+  userId: string
+  name: string
+  streak: number
+  lessonsCompleted: number
 }
 
 export const apiClient = new ApiClient()

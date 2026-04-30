@@ -48,6 +48,13 @@ export default function DashboardLayout({
             >
               Settings
             </Link>
+            <Link
+              href="/team"
+              className="block px-6 py-3 hover:bg-blue-800 dark:hover:bg-gray-700 transition focus-visible:bg-blue-800 focus-visible:outline-none"
+              aria-label="View team dashboard"
+            >
+              Team
+            </Link>
           </nav>
           <div className="p-6">
             <button

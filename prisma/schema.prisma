@@ -15,6 +15,11 @@ enum UserRole {
   admin
 }
 
+enum TeamRole {
+  admin
+  member
+}
+
 // User authentication and profile
 model User {
   id        String   @id @default(cuid())
@@ -33,6 +38,8 @@ model User {
   generatedLessons         GeneratedLesson[]
   skillRatings             UserSkillRating[]
   pushTokens               PushToken[]
+  teamMembers              TeamMember[]
+  ownedTeams               Team[]       @relation("TeamOwner")
 
   @@map("users")
 }
@@ -72,13 +79,14 @@ model SkillPath {
   skillId       String
   level         String   // "beginner", "intermediate", "advanced"
   durationHours Int
+  teamId        String?  // null = global (visible to all), set = team-specific
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
   skill   Skill    @relation(fields: [skillId], references: [id], onDelete: Cascade)
   lessons Lesson[]
 
-  @@unique([skillId, level])
+  @@index([teamId])
   @@map("skill_paths")
 }
 
@@ -278,4 +286,46 @@ model Notification {
 
   @@index([userId])
   @@map("notifications")
+}
+
+// Team accounts (Phase 10)
+model Team {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  ownerId   String
+  createdAt DateTime @default(now())
+
+  owner        User              @relation("TeamOwner", fields: [ownerId], references: [id])
+  members      TeamMember[]
+  subscription TeamSubscription?
+
+  @@map("teams")
+}
+
+model TeamMember {
+  id       String   @id @default(cuid())
+  teamId   String
+  userId   String
+  role     TeamRole @default(member)
+  joinedAt DateTime @default(now())
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, userId])
+  @@map("team_members")
+}
+
+model TeamSubscription {
+  id                   String @id @default(cuid())
+  teamId               String @unique
+  stripeCustomerId     String
+  stripeSubscriptionId String
+  seatLimit            Int    @default(20)
+  status               String @default("active")
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@map("team_subscriptions")
 }
